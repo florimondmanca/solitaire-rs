@@ -3,7 +3,6 @@ use std::ops::{Deref, DerefMut};
 use rand::prelude::*;
 
 // Rules: https://www.officialgamerules.org/solitaire
-// termion: https://github.com/redox-os/games/blob/master/src/minesweeper/main.rs
 
 #[derive(Debug, Clone, Copy)]
 pub enum Suit {
@@ -83,10 +82,6 @@ impl Pile {
     pub fn new() -> Self {
         Self(Vec::new())
     }
-
-    pub fn top(&self) -> Option<&PileCard> {
-        self.last()
-    }
 }
 
 impl From<Vec<PileCard>> for Pile {
@@ -104,23 +99,15 @@ impl FromIterator<PileCard> for Pile {
 }
 
 pub struct Board {
-    pub tableau: [Pile; 7],
-    pub foundations: [Pile; 4],
+    pub tableau: Vec<Pile>,
+    pub foundations: Vec<Pile>,
     pub stock: Pile,
     pub waste: Pile,
 }
 
 impl Board {
     pub fn new() -> Self {
-        let mut tableau = [
-            Pile::new(),
-            Pile::new(),
-            Pile::new(),
-            Pile::new(),
-            Pile::new(),
-            Pile::new(),
-            Pile::new(),
-        ];
+        let mut tableau = (0..7).map(|_| Pile::new()).collect::<Vec<_>>();
 
         let mut cards = shuffle_cards();
 
@@ -140,9 +127,11 @@ impl Board {
             stock.push(PileCard::new(card, Face::Down));
         }
 
+        let foundations = (0..4).map(|_| Pile::new()).collect();
+
         Self {
             tableau,
-            foundations: [Pile::new(), Pile::new(), Pile::new(), Pile::new()],
+            foundations,
             stock,
             waste: Pile::new(),
         }

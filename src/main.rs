@@ -1,6 +1,5 @@
-use solitaire_rs::{domain::entities::Board, ui::termui};
+use solitaire_rs::ui::termui;
 
 fn main() {
-    let board = Board::new();
-    termui::render(board);
+    termui::run().unwrap();
 }
