@@ -103,48 +103,96 @@ impl<'a> fmt::Display for PileCardSprite<'a> {
     }
 }
 
-struct PileSprite<'a> {
-    pub number: u16,
+struct SlotSprite {
     pub x: u16,
     pub y: u16,
-    pub pile_cards: Vec<PileCardSprite<'a>>,
 }
 
-impl<'a> PileSprite<'a> {
-    pub fn new(number: u16, x: u16, y: u16, pile: &'a Pile) -> Self {
-        let mut dy = 2;
-
-        let pile_cards = pile
-            .iter()
-            .enumerate()
-            .map(|(index, pile_card)| {
-                let sprite = PileCardSprite::new(x, y + dy, pile_card);
-
-                dy += match index {
-                    i if i == pile.len() - 1 => sprite.height(),
-                    _ => 2, // Covered by next card
-                };
-
-                sprite
-            })
-            .collect();
-
-        Self {
-            number,
-            x,
-            y,
-            pile_cards,
-        }
+impl SlotSprite {
+    pub fn new(x: u16, y: u16) -> Self {
+        Self { x, y }
     }
 }
 
-impl<'a> fmt::Display for PileSprite<'a> {
+impl fmt::Display for SlotSprite {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", cursor::Goto(self.x, self.y))?;
-        write!(f, "{}", format!("Pile {}", self.number))?;
-        write!(f, "{}", cursor::Goto(self.x, self.y + 1))?;
-        write!(f, "{}", format!("({} cards)", self.pile_cards.len()))?;
+        write!(f, "┌╌╌╌┐")?;
 
+        write!(f, "{}", cursor::Goto(self.x, self.y + 1))?;
+        write!(f, "╎   ╎",)?;
+
+        write!(f, "{}", cursor::Goto(self.x, self.y + 2))?;
+        write!(f, "╎   ╎")?;
+
+        write!(f, "{}", cursor::Goto(self.x, self.y + 3))?;
+        write!(f, "└╌╌╌┘")?;
+
+        Ok(())
+    }
+}
+
+struct StackedPileSprite<'a> {
+    pub x: u16,
+    pub y: u16,
+    pub pile: &'a Pile,
+}
+
+impl<'a> StackedPileSprite<'a> {
+    pub fn new(x: u16, y: u16, pile: &'a Pile) -> Self {
+        Self { x, y, pile }
+    }
+
+    pub fn width(&self) -> u16 {
+        5
+    }
+
+    pub fn height(&self) -> u16 {
+        4
+    }
+}
+
+impl<'a> fmt::Display for StackedPileSprite<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        if let Some(card) = self.pile.last() {
+            write!(f, "{}", PileCardSprite::new(self.x, self.y, card))?;
+        } else {
+            write!(f, "{}", SlotSprite::new(self.x, self.y))?;
+        }
+
+        Ok(())
+    }
+}
+
+struct FannedPileSprite<'a> {
+    pub pile_cards: Vec<PileCardSprite<'a>>,
+}
+
+impl<'a> FannedPileSprite<'a> {
+    pub fn new(x: u16, y: u16, pile: &'a Pile) -> Self {
+        let last_index = pile.len() - 1;
+        let mut pile_cards = Vec::new();
+        let mut dy = 0;
+
+        for (index, pile_card) in pile.iter().enumerate() {
+            let sprite = PileCardSprite::new(x, y + dy, pile_card);
+            dy += match index {
+                i if i == last_index => sprite.height(), // Last card is visible in full.
+                _ => 2, // Other cards are covered by the card after them.
+            };
+            pile_cards.push(sprite);
+        }
+
+        Self { pile_cards }
+    }
+
+    pub fn width(&self) -> u16 {
+        5
+    }
+}
+
+impl<'a> fmt::Display for FannedPileSprite<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for pile_card in &self.pile_cards {
             write!(f, "{}", pile_card)?;
         }
@@ -154,30 +202,57 @@ impl<'a> fmt::Display for PileSprite<'a> {
 }
 
 struct BoardSprite<'a> {
-    tableau: Vec<PileSprite<'a>>,
+    tableau: Vec<FannedPileSprite<'a>>,
+    foundations: Vec<StackedPileSprite<'a>>,
+    stock: StackedPileSprite<'a>,
+    waste: StackedPileSprite<'a>,
 }
 
 impl<'a> BoardSprite<'a> {
     pub fn new(board: &'a Board) -> Self {
-        let dx = 12;
+        let stock = StackedPileSprite::new(1, 1, &board.stock);
+        let waste = StackedPileSprite::new(stock.x + stock.width() + 1, 1, &board.waste);
+
+        let mut tableau = Vec::new();
         let x0 = 1;
-        let y0 = 1;
+        let mut dx = 0;
+        let y0 = stock.y + stock.height();
 
-        let tableau = board
-            .tableau
-            .iter()
-            .enumerate()
-            .map(|(index, pile)| (index as u16, pile))
-            .map(|(index, pile)| PileSprite::new(index + 1, x0 + index * dx, y0, pile))
-            .collect();
+        for pile in board.tableau.iter() {
+            let sprite = FannedPileSprite::new(x0 + dx, y0, pile);
+            dx += sprite.width() + 1;
+            tableau.push(sprite);
+        }
 
-        Self { tableau }
+        let mut foundations = Vec::new();
+        let x0 = waste.y + 3 * (waste.width() + 1);
+        let mut dx = 0;
+
+        for pile in board.foundations.iter() {
+            let sprite = StackedPileSprite::new(x0 + dx, 1, pile);
+            dx += sprite.width() + 1;
+            foundations.push(sprite);
+        }
+
+        Self {
+            tableau,
+            foundations,
+            stock,
+            waste,
+        }
     }
 }
 
 impl<'a> fmt::Display for BoardSprite<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", clear::All)?;
+
+        write!(f, "{}", self.stock)?;
+        write!(f, "{}", self.waste)?;
+
+        for pile in &self.foundations {
+            write!(f, "{}", pile)?;
+        }
 
         for pile in &self.tableau {
             write!(f, "{}", pile)?;
