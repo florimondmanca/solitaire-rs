@@ -1,5 +1,3 @@
-use std::ops::{Deref, DerefMut};
-
 use rand::prelude::*;
 
 // Rules: https://www.officialgamerules.org/solitaire
@@ -31,18 +29,6 @@ impl Rank {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Card {
-    pub rank: Rank,
-    pub suit: Suit,
-}
-
-impl Card {
-    pub fn new(rank: Rank, suit: Suit) -> Self {
-        Self { rank, suit }
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Face {
     Up,
@@ -50,53 +36,34 @@ pub enum Face {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct PileCard {
-    pub card: Card,
-    pub face: Face,
+pub struct Card {
+    pub rank: Rank,
+    pub suit: Suit,
+    face: Face,
 }
 
-impl PileCard {
-    pub fn new(card: Card, face: Face) -> Self {
-        Self { card, face }
+impl Card {
+    pub fn new(rank: Rank, suit: Suit, face: Face) -> Self {
+        Self { rank, suit, face }
+    }
+
+    pub fn show(&mut self) {
+        self.face = Face::Up;
+    }
+
+    pub fn flip(&mut self) {
+        self.face = match self.face {
+            Face::Up => Face::Down,
+            Face::Down => Face::Up,
+        };
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.face == Face::Up
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Pile(Vec<PileCard>);
-
-impl Deref for Pile {
-    type Target = Vec<PileCard>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Pile {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Pile {
-    pub fn new() -> Self {
-        Self(Vec::new())
-    }
-}
-
-impl From<Vec<PileCard>> for Pile {
-    fn from(value: Vec<PileCard>) -> Self {
-        let mut pile = Self::new();
-        pile.extend(value.clone());
-        pile
-    }
-}
-
-impl FromIterator<PileCard> for Pile {
-    fn from_iter<T: IntoIterator<Item = PileCard>>(iter: T) -> Self {
-        Self::from(Vec::from_iter(iter))
-    }
-}
+pub type Pile = Vec<Card>;
 
 pub struct Board {
     pub tableau: Vec<Pile>,
@@ -109,22 +76,26 @@ impl Board {
     pub fn new() -> Self {
         let mut tableau = (0..7).map(|_| Pile::new()).collect::<Vec<_>>();
 
-        let mut cards = shuffle_cards();
+        let mut pack = get_standard_pack();
+
+        pack.shuffle(&mut rand::thread_rng());
 
         for index in 0..7 {
             let pile = &mut tableau[index];
-            pile.push(PileCard::new(cards.pop().unwrap(), Face::Up));
+            let mut card = pack.pop().unwrap();
+            card.show();
+            pile.push(card);
 
             for j in index + 1..7 {
                 let other_pile = &mut tableau[j];
-                other_pile.push(PileCard::new(cards.pop().unwrap(), Face::Down));
+                other_pile.push(pack.pop().unwrap());
             }
         }
 
         let mut stock = Pile::new();
 
-        while let Some(card) = cards.pop() {
-            stock.push(PileCard::new(card, Face::Down));
+        while let Some(card) = pack.pop() {
+            stock.push(card);
         }
 
         let foundations = (0..4).map(|_| Pile::new()).collect();
@@ -138,16 +109,14 @@ impl Board {
     }
 }
 
-pub fn shuffle_cards() -> Vec<Card> {
-    let mut cards = Vec::new();
+pub fn get_standard_pack() -> Vec<Card> {
+    let mut pack = Vec::new();
 
     for suit in Suit::all() {
         for rank in Rank::all() {
-            cards.push(Card::new(rank, suit));
+            pack.push(Card::new(rank, suit, Face::Down));
         }
     }
 
-    cards.shuffle(&mut rand::thread_rng());
-
-    cards
+    pack
 }
