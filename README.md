@@ -1,6 +1,6 @@
 # solitaire-rs
 
-A [Solitaire] game written in [Rust].
+Play [Solitaire](https://www.officialgamerules.org/solitaire) in the terminal. Written in [Rust](https://www.rust-lang.org/).
 
 ## Prerequisites
 
