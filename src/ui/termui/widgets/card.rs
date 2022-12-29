@@ -21,10 +21,10 @@ pub static PICKED_COLOR: color::Yellow = color::Yellow;
 impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Suit::Heart => write!(f, "♥"),
-            Suit::Diamond => write!(f, "♦"),
-            Suit::Spades => write!(f, "♠"),
-            Suit::Club => write!(f, "♣"),
+            Suit::Heart => write!(f, "{}♥{}", color::Fg(color::Red), color::Fg(color::Reset)),
+            Suit::Diamond => write!(f, "{}♦{}", color::Fg(color::Red), color::Fg(color::Reset)),
+            Suit::Spades => write!(f, "{}♠{}", color::Fg(color::Black), color::Fg(color::Reset)),
+            Suit::Club => write!(f, "{}♣{}", color::Fg(color::Black), color::Fg(color::Reset)),
         }?;
 
         Ok(())
@@ -60,6 +60,18 @@ impl CardWidget {
             state,
         }
     }
+
+    fn colorize(&self, s: &str) -> String {
+        match self.state {
+            Some(CardState::Picked) => {
+                format!("{}{s}{}", color::Fg(PICKED_COLOR), color::Fg(color::Reset))
+            }
+            Some(CardState::Hovered) => {
+                format!("{}{s}{}", color::Fg(HOVER_COLOR), color::Fg(color::Reset))
+            }
+            _ => s.into(),
+        }
+    }
 }
 
 impl HasSize for CardWidget {
@@ -79,25 +91,10 @@ impl<W: io::Write> Widget<W> for CardWidget {
             _ => x,
         };
 
-        let colorize = |s: &str| -> String {
-            if self.state == Some(CardState::Picked) {
-                format!("{}{s}{}", color::Fg(PICKED_COLOR), color::Fg(color::Reset),)
-            } else if self.state == Some(CardState::Hovered) {
-                format!("{}{s}{}", color::Fg(HOVER_COLOR), color::Fg(color::Reset),)
-            } else {
-                format!("{s}")
-            }
-        };
-
         write!(f, "{}", cursor::Goto(x, y))?;
-        write!(f, "{}", colorize("┌───┐"))?;
+        write!(f, "{}", self.colorize("┌───┐"))?;
 
         if self.card.is_visible() {
-            let suit_color = match self.card.suit {
-                Suit::Heart | Suit::Diamond => format!("{}", color::Fg(color::Red)),
-                _ => format!("{}", color::Fg(color::Black)),
-            };
-
             let rank = match format!("{}", self.card.rank).as_str() {
                 "10" => "10".into(),
                 s => format!(" {s}"),
@@ -106,23 +103,14 @@ impl<W: io::Write> Widget<W> for CardWidget {
             write!(f, "{}", cursor::Goto(x, y + 1))?;
             write!(
                 f,
-                "{b}{}{}{}{}{b}",
-                suit_color,
+                "{b}{}{}{b}",
                 self.card.suit,
-                color::Fg(color::Reset),
                 rank,
-                b = colorize("│"),
+                b = self.colorize("│"),
             )?;
 
             write!(f, "{}", cursor::Goto(x, y + 2))?;
-            write!(
-                f,
-                "{b} {}{}{} {b}",
-                suit_color,
-                self.card.suit,
-                color::Fg(color::Reset),
-                b = colorize("│"),
-            )?;
+            write!(f, "{b} {} {b}", self.card.suit, b = self.colorize("│"),)?;
         } else {
             for dy in &[1, 2] {
                 write!(f, "{}", cursor::Goto(x, y + dy))?;
@@ -131,17 +119,17 @@ impl<W: io::Write> Widget<W> for CardWidget {
                     "{b}{}▚▚▚{}{b}",
                     color::Fg(color::LightBlue),
                     color::Fg(color::Reset),
-                    b = colorize("│"),
+                    b = self.colorize("│"),
                 )?;
             }
         }
 
         write!(f, "{}", cursor::Goto(x, y + 3))?;
-        write!(f, "{}", colorize("└───┘"))?;
+        write!(f, "{}", self.colorize("└───┘"))?;
 
         if self.state == Some(CardState::Hovered) {
-            write!(f, "{}", cursor::Goto(x, y + 4))?;
-            write!(f, "{}", colorize("  ^  "))?;
+            write!(f, "{}", cursor::Goto(x + 2, y + 4))?;
+            write!(f, "{}", self.colorize("^"))?;
         }
 
         Ok(())

@@ -52,6 +52,7 @@ impl<W: io::Write> Game<W> {
             match keys.next() {
                 Some(Ok(Key::Char('q'))) => break,
                 Some(Ok(Key::Char(' '))) => self.on_press_space(),
+                Some(Ok(Key::Char('\n'))) => self.on_press_enter(),
                 Some(Ok(Key::Left)) => self.on_press_left(),
                 Some(Ok(Key::Right)) => self.on_press_right(),
                 _ => {}
@@ -96,6 +97,46 @@ impl<W: io::Write> Game<W> {
         };
     }
 
+    fn on_press_enter(&mut self) {
+        if let Some(_) = self.picked {
+            return;
+        }
+
+        // Move card to a foundation, if possible.
+        let card = self.board.tableau[self.pos]
+            .last()
+            .filter(|c| c.is_visible());
+
+        if card.is_none() {
+            return;
+        }
+
+        let card = card.unwrap();
+        let suit = card.suit;
+        let rank = card.rank.0;
+
+        for foundation in self.board.foundations.iter_mut() {
+            if foundation.is_empty() {
+                if rank == 1 {
+                    let card = self.board.tableau[self.pos].pop().unwrap();
+                    foundation.push(card);
+                    self.dirty = true;
+                    return;
+                }
+                continue;
+            }
+
+            let top = foundation.last().unwrap();
+
+            if top.suit == suit && top.rank.0 == rank + 1 {
+                let card = self.board.tableau[self.pos].pop().unwrap();
+                foundation.push(card);
+                self.dirty = true;
+                return;
+            }
+        }
+    }
+
     fn on_press_left(&mut self) {
         let num_piles = self.board.tableau.len();
         self.pos = (self.pos + num_piles - 1) % num_piles;
@@ -113,6 +154,13 @@ impl<W: io::Write> Game<W> {
 
         // Card of rank N can be transferred to either an empty pile...
         if t[dest].is_empty() {
+            let source_card = t[source].pop().unwrap();
+            t[dest].push(source_card);
+            return;
+        }
+
+        // ... or a pile whose top card is hidden...
+        if !t[dest].last().unwrap().is_visible() {
             let source_card = t[source].pop().unwrap();
             t[dest].push(source_card);
             return;

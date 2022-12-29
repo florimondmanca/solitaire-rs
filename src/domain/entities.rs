@@ -2,7 +2,7 @@ use rand::prelude::*;
 
 // Rules: https://www.officialgamerules.org/solitaire
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Suit {
     Spades,
     Heart,
