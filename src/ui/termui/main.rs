@@ -70,30 +70,27 @@ impl<W: io::Write> Game<W> {
     }
 
     fn init(&mut self) -> Result<(), Box<dyn Error>> {
-        write!(self.stdout, "{}", clear::All)?;
-        write!(self.stdout, "{}", cursor::Goto(1, 1))?;
         self.draw()?;
-        self.stdout.flush()?;
         Ok(())
     }
 
     fn on_press_space(&mut self) {
         if let Some(source) = self.picked {
-            // We previously picked a card, and now
-            // we've selected the spot where it should be moved.
-            self.maybe_transfer(source, self.pos);
+            // User had previously picked a card.
+            // They just chosed where it should be transferred.
+            self.transfer_if_allowed(source, self.pos);
             self.picked = None;
             self.dirty = true;
             return;
         }
 
-        // We selected one of the cards in the tableau.
-        // If it's visible, pick it, otherwise, flip it over.
+        // User has selected a card.
+        // If it's visible, pick it, otherwise, reveal it.
         if let Some(card) = self.board.get_mut_pile_at(self.pos).unwrap().last_mut() {
             if card.is_visible() {
                 self.picked = Some(self.pos);
             } else {
-                card.show();
+                card.reveal();
             }
             self.dirty = true;
         };
@@ -105,7 +102,7 @@ impl<W: io::Write> Game<W> {
             return;
         }
 
-        // Try moving a card to a foundation.
+        // Try moving the currently hovered card to a foundation.
 
         let card = self
             .board
@@ -122,41 +119,49 @@ impl<W: io::Write> Game<W> {
         let card = card.unwrap();
         let suit = card.suit;
         let rank = card.rank.0;
-        let mut inserted = false;
+        let mut was_transferred = false;
 
         for foundation in self.board.foundations.iter_mut() {
+            // Find a foundation where the card be transferred, if any.
+            // We do this automatically for better UX.
+
+            // Empty foundations can only be transferred an ace.
             if foundation.is_empty() {
                 if rank == 1 {
                     foundation.push(card);
-                    inserted = true;
+                    was_transferred = true;
                     self.dirty = true;
                     break;
                 }
                 continue;
             }
 
-            let top = foundation.last().unwrap();
+            // For established foundations, the suit must match and
+            // cards must be stacked with ranks ascending.
+            let last = foundation.last().unwrap();
 
-            if top.suit == suit && top.rank.0 == rank + 1 {
+            if last.suit == suit && rank == last.rank.0 + 1 {
                 foundation.push(card);
-                inserted = true;
+                was_transferred = true;
                 self.dirty = true;
                 break;
             }
         }
 
-        if inserted {
+        if was_transferred {
             // Need to do this outside the for-loop to please the borrow checker.
             self.board.get_mut_pile_at(self.pos).unwrap().pop().unwrap();
         }
     }
 
     fn on_press_w(&mut self) {
-        if self.pos == 0 {
+        if self.pos > 0 {
             // Can only trash a card from the stock.
-            if self.board.maybe_move_to_waste() {
-                self.dirty = true;
-            }
+            return;
+        }
+
+        if self.board.maybe_move_to_waste() {
+            self.dirty = true;
         }
     }
 
@@ -172,7 +177,7 @@ impl<W: io::Write> Game<W> {
         self.dirty = true;
     }
 
-    fn maybe_transfer(&mut self, source: usize, dest: usize) {
+    fn transfer_if_allowed(&mut self, source: usize, dest: usize) {
         if dest == 0 {
             // Can't transfer to the stock pile.
             return;

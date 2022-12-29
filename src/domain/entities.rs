@@ -51,7 +51,7 @@ impl Card {
         self.face == Face::Up
     }
 
-    pub fn show(&mut self) {
+    pub fn reveal(&mut self) {
         self.face = Face::Up;
     }
 }
@@ -76,7 +76,7 @@ impl Board {
         for index in 0..7 {
             let pile = &mut tableau[index];
             let mut card = pack.pop().unwrap();
-            card.show();
+            card.reveal();
             pile.push(card);
 
             for j in index + 1..7 {
