@@ -1,4 +1,5 @@
+mod lib;
 mod main;
-mod views;
+mod widgets;
 
 pub use main::run;
