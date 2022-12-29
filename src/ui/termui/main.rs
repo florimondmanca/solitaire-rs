@@ -109,12 +109,22 @@ impl<W: io::Write> Game<W> {
     }
 
     fn transfer_to(&mut self, dest: usize, source: usize) {
-        let source_pile = &mut self.board.tableau[source];
+        let t = &mut self.board.tableau;
 
-        if let Some(card) = source_pile.pop() {
-            let dest_pile = &mut self.board.tableau[dest];
-            dest_pile.push(card);
-        };
+        // Card of rank N can be transferred to either an empty pile...
+        if t[dest].is_empty() {
+            let source_card = t[source].pop().unwrap();
+            t[dest].push(source_card);
+            return;
+        }
+
+        // ... or a pile whose top card has rank N + 1.
+        let source_rank = t[source].last().unwrap().rank.0;
+        let dest_rank = t[dest].last().unwrap().rank.0;
+        if source_rank + 1 == dest_rank {
+            let source_card = t[source].pop().unwrap();
+            t[dest].push(source_card);
+        }
     }
 
     fn get_state(&self, index: usize) -> Option<CardState> {

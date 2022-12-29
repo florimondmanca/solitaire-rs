@@ -16,7 +16,7 @@ impl Suit {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rank(pub u8);
 
 impl Rank {
