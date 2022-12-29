@@ -1,32 +1,34 @@
 use std::io;
-use termion::cursor;
+use termion::{color, cursor};
 
 use crate::{
-    domain::entities::Card,
+    domain::entities::{Card, Pile},
     ui::termui::lib::{HasSize, Loc, RenderResult, Size, Widget},
 };
 
-use super::card::CardWidget;
+use super::{card::CardWidget, CardState, HOVER_COLOR};
 
 /**
  * Display a pile of cards fanned out as a column.
  */
 #[derive(Clone)]
 pub struct FannedPileWidget {
-    card_widgets: Vec<CardWidget>,
+    pile: Pile,
     size: Size,
+    state: Option<CardState>,
 }
 
 impl FannedPileWidget {
-    pub fn new(pile: Vec<Card>) -> Self {
+    pub fn new(pile: Pile, state: Option<CardState>) -> Self {
         let height = match pile.len() {
             0 => 4,
             n => 4 + (n - 1) as u16 * 2,
         };
 
         Self {
-            card_widgets: pile.into_iter().map(CardWidget::new).collect(),
+            pile,
             size: Size::new(5, height),
+            state,
         }
     }
 }
@@ -39,15 +41,26 @@ impl HasSize for FannedPileWidget {
 
 impl<W: io::Write> Widget<W> for FannedPileWidget {
     fn render(&self, f: &mut W, loc: Loc) -> RenderResult {
-        let mut loc = loc;
-        let last_index = self.card_widgets.len() - 1;
+        if self.pile.is_empty() {
+            let widget = EmptySlotWidget::new(self.state);
+            widget.render(f, loc)?;
+            return Ok(());
+        }
 
-        for (index, card) in self.card_widgets.iter().enumerate() {
-            card.render(f, loc)?;
+        let mut loc = loc;
+        let last_index = self.pile.len() - 1;
+
+        for (index, card) in self.pile.iter().enumerate() {
+            let state = match (index == last_index, self.state) {
+                (true, Some(s)) => Some(s),
+                _ => None,
+            };
+            let widget = CardWidget::new(card.clone(), state);
+            widget.render(f, loc)?;
 
             if index == last_index {
                 // Last card is visible in full.
-                loc.y += card.get_height();
+                loc.y += widget.get_height();
             } else {
                 // Other cards are partially covered.
                 loc.y += 2;
@@ -84,10 +97,10 @@ impl HasSize for StackedPileWidget {
 impl<W: io::Write> Widget<W> for StackedPileWidget {
     fn render(&self, f: &mut W, loc: Loc) -> RenderResult {
         if let Some(top_card) = self.pile.last() {
-            let card_widget = CardWidget::new(top_card.clone());
+            let card_widget = CardWidget::new(top_card.clone(), None);
             card_widget.render(f, loc)
         } else {
-            let widget = EmptySlotWidget::new();
+            let widget = EmptySlotWidget::new(None);
             widget.render(f, loc)
         }
     }
@@ -95,12 +108,14 @@ impl<W: io::Write> Widget<W> for StackedPileWidget {
 
 struct EmptySlotWidget {
     size: Size,
+    state: Option<CardState>,
 }
 
 impl EmptySlotWidget {
-    pub fn new() -> Self {
+    pub fn new(state: Option<CardState>) -> Self {
         Self {
             size: Size::new(5, 4),
+            state,
         }
     }
 }
@@ -115,6 +130,9 @@ impl<W: io::Write> Widget<W> for EmptySlotWidget {
     fn render(&self, f: &mut W, loc: Loc) -> RenderResult {
         let Loc { x, y } = loc;
 
+        if self.state == Some(CardState::Hovered) {
+            write!(f, "{}", color::Fg(HOVER_COLOR))?;
+        }
         write!(f, "{}", cursor::Goto(x, y))?;
         write!(f, "┌╌╌╌┐")?;
         write!(f, "{}", cursor::Goto(x, y + 1))?;
@@ -123,6 +141,9 @@ impl<W: io::Write> Widget<W> for EmptySlotWidget {
         write!(f, "╎   ╎")?;
         write!(f, "{}", cursor::Goto(x, y + 3))?;
         write!(f, "└╌╌╌┘")?;
+        if self.state == Some(CardState::Hovered) {
+            write!(f, "{}", color::Fg(color::Reset))?;
+        }
 
         Ok(())
     }

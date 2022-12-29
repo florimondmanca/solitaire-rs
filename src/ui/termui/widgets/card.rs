@@ -9,6 +9,15 @@ use crate::ui::termui::lib::RenderResult;
 use crate::ui::termui::lib::Size;
 use crate::ui::termui::lib::Widget;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum CardState {
+    Hovered,
+    Picked,
+}
+
+pub static HOVER_COLOR: color::LightCyan = color::LightCyan;
+pub static PICKED_COLOR: color::Yellow = color::Yellow;
+
 impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -40,13 +49,15 @@ impl fmt::Display for Rank {
 pub struct CardWidget {
     size: Size,
     card: Card,
+    state: Option<CardState>,
 }
 
 impl CardWidget {
-    pub fn new(card: Card) -> Self {
+    pub fn new(card: Card, state: Option<CardState>) -> Self {
         Self {
             size: Size::new(5, 4),
             card,
+            state,
         }
     }
 }
@@ -58,11 +69,28 @@ impl HasSize for CardWidget {
 }
 
 impl<W: io::Write> Widget<W> for CardWidget {
-    fn render(&self, stdout: &mut W, loc: Loc) -> RenderResult {
+    fn render(&self, f: &mut W, loc: Loc) -> RenderResult {
         let Loc { x, y } = loc;
 
-        write!(stdout, "{}", cursor::Goto(x, y))?;
-        write!(stdout, "┌───┐")?;
+        // Levitation effect
+        let x = match self.state {
+            Some(CardState::Hovered) => x + 1,
+            Some(CardState::Picked) => x + 1,
+            _ => x,
+        };
+
+        let colorize = |s: &str| -> String {
+            if self.state == Some(CardState::Picked) {
+                format!("{}{s}{}", color::Fg(PICKED_COLOR), color::Fg(color::Reset),)
+            } else if self.state == Some(CardState::Hovered) {
+                format!("{}{s}{}", color::Fg(HOVER_COLOR), color::Fg(color::Reset),)
+            } else {
+                format!("{s}")
+            }
+        };
+
+        write!(f, "{}", cursor::Goto(x, y))?;
+        write!(f, "{}", colorize("┌───┐"))?;
 
         if self.card.is_visible() {
             let suit_color = match self.card.suit {
@@ -75,38 +103,46 @@ impl<W: io::Write> Widget<W> for CardWidget {
                 s => format!(" {s}"),
             };
 
-            write!(stdout, "{}", cursor::Goto(x, y + 1))?;
+            write!(f, "{}", cursor::Goto(x, y + 1))?;
             write!(
-                stdout,
-                "│{}{}{}{}│",
+                f,
+                "{b}{}{}{}{}{b}",
                 suit_color,
                 self.card.suit,
                 color::Fg(color::Reset),
                 rank,
+                b = colorize("│"),
             )?;
 
-            write!(stdout, "{}", cursor::Goto(x, y + 2))?;
+            write!(f, "{}", cursor::Goto(x, y + 2))?;
             write!(
-                stdout,
-                "│ {}{}{} │",
+                f,
+                "{b} {}{}{} {b}",
                 suit_color,
                 self.card.suit,
-                color::Fg(color::Reset)
+                color::Fg(color::Reset),
+                b = colorize("│"),
             )?;
         } else {
             for dy in &[1, 2] {
-                write!(stdout, "{}", cursor::Goto(x, y + dy))?;
+                write!(f, "{}", cursor::Goto(x, y + dy))?;
                 write!(
-                    stdout,
-                    "│{}▚▚▚{}│",
+                    f,
+                    "{b}{}▚▚▚{}{b}",
                     color::Fg(color::LightBlue),
-                    color::Fg(color::Reset)
+                    color::Fg(color::Reset),
+                    b = colorize("│"),
                 )?;
             }
         }
 
-        write!(stdout, "{}", cursor::Goto(x, y + 3))?;
-        write!(stdout, "└───┘")?;
+        write!(f, "{}", cursor::Goto(x, y + 3))?;
+        write!(f, "{}", colorize("└───┘"))?;
+
+        if self.state == Some(CardState::Hovered) {
+            write!(f, "{}", cursor::Goto(x, y + 4))?;
+            write!(f, "{}", colorize("  ^  "))?;
+        }
 
         Ok(())
     }

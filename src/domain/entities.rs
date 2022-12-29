@@ -47,19 +47,12 @@ impl Card {
         Self { rank, suit, face }
     }
 
-    pub fn show(&mut self) {
-        self.face = Face::Up;
-    }
-
-    pub fn flip(&mut self) {
-        self.face = match self.face {
-            Face::Up => Face::Down,
-            Face::Down => Face::Up,
-        };
-    }
-
     pub fn is_visible(&self) -> bool {
         self.face == Face::Up
+    }
+
+    pub fn show(&mut self) {
+        self.face = Face::Up;
     }
 }
 
