@@ -77,13 +77,15 @@ impl<W: io::Write> Widget<W> for FannedPileWidget {
 pub struct StackedPileWidget {
     pile: Vec<Card>,
     size: Size,
+    state: Option<CardState>,
 }
 
 impl StackedPileWidget {
-    pub fn new(pile: Vec<Card>) -> Self {
+    pub fn new(pile: Vec<Card>, state: Option<CardState>) -> Self {
         Self {
             pile,
             size: Size::new(5, 4),
+            state,
         }
     }
 }
@@ -97,10 +99,10 @@ impl HasSize for StackedPileWidget {
 impl<W: io::Write> Widget<W> for StackedPileWidget {
     fn render(&self, f: &mut W, loc: Loc) -> RenderResult {
         if let Some(top_card) = self.pile.last() {
-            let card_widget = CardWidget::new(top_card.clone(), None);
+            let card_widget = CardWidget::new(top_card.clone(), self.state);
             card_widget.render(f, loc)
         } else {
-            let widget = EmptySlotWidget::new(None);
+            let widget = EmptySlotWidget::new(self.state);
             widget.render(f, loc)
         }
     }

@@ -33,6 +33,7 @@ impl<W: io::Write> Game<W> {
             stdout,
             board: Board::new(),
             dirty: false,
+            // Stock pile is position 0, 1st tableau pile is position 1, and so on.
             pos: 0,
             picked: None,
         }
@@ -53,6 +54,7 @@ impl<W: io::Write> Game<W> {
                 Some(Ok(Key::Char('q'))) => break,
                 Some(Ok(Key::Char(' '))) => self.on_press_space(),
                 Some(Ok(Key::Char('\n'))) => self.on_press_enter(),
+                Some(Ok(Key::Char('w'))) => self.on_press_w(),
                 Some(Ok(Key::Left)) => self.on_press_left(),
                 Some(Ok(Key::Right)) => self.on_press_right(),
                 _ => {}
@@ -79,7 +81,7 @@ impl<W: io::Write> Game<W> {
         if let Some(source) = self.picked {
             // We previously picked a card, and now
             // we've selected the spot where it should be moved.
-            self.transfer_to(self.pos, source);
+            self.maybe_transfer(source, self.pos);
             self.picked = None;
             self.dirty = true;
             return;
@@ -87,7 +89,7 @@ impl<W: io::Write> Game<W> {
 
         // We selected one of the cards in the tableau.
         // If it's visible, pick it, otherwise, flip it over.
-        if let Some(card) = self.board.tableau[self.pos].last_mut() {
+        if let Some(card) = self.board.get_mut_pile_at(self.pos).unwrap().last_mut() {
             if card.is_visible() {
                 self.picked = Some(self.pos);
             } else {
@@ -99,12 +101,18 @@ impl<W: io::Write> Game<W> {
 
     fn on_press_enter(&mut self) {
         if let Some(_) = self.picked {
+            // Can't move cards to foundations while a card is picked.
             return;
         }
 
-        // Move card to a foundation, if possible.
-        let card = self.board.tableau[self.pos]
+        // Try moving a card to a foundation.
+
+        let card = self
+            .board
+            .get_pile_at(self.pos)
+            .unwrap()
             .last()
+            .map(|c| *c)
             .filter(|c| c.is_visible());
 
         if card.is_none() {
@@ -114,14 +122,15 @@ impl<W: io::Write> Game<W> {
         let card = card.unwrap();
         let suit = card.suit;
         let rank = card.rank.0;
+        let mut inserted = false;
 
         for foundation in self.board.foundations.iter_mut() {
             if foundation.is_empty() {
                 if rank == 1 {
-                    let card = self.board.tableau[self.pos].pop().unwrap();
                     foundation.push(card);
+                    inserted = true;
                     self.dirty = true;
-                    return;
+                    break;
                 }
                 continue;
             }
@@ -129,49 +138,61 @@ impl<W: io::Write> Game<W> {
             let top = foundation.last().unwrap();
 
             if top.suit == suit && top.rank.0 == rank + 1 {
-                let card = self.board.tableau[self.pos].pop().unwrap();
                 foundation.push(card);
+                inserted = true;
                 self.dirty = true;
-                return;
+                break;
+            }
+        }
+
+        if inserted {
+            // Need to do this outside the for-loop to please the borrow checker.
+            self.board.get_mut_pile_at(self.pos).unwrap().pop().unwrap();
+        }
+    }
+
+    fn on_press_w(&mut self) {
+        if self.pos == 0 {
+            // Can only trash a card from the stock.
+            if self.board.maybe_move_to_waste() {
+                self.dirty = true;
             }
         }
     }
 
     fn on_press_left(&mut self) {
-        let num_piles = self.board.tableau.len();
-        self.pos = (self.pos + num_piles - 1) % num_piles;
+        let max = self.board.get_num_piles();
+        self.pos = (self.pos + max - 1) % max;
         self.dirty = true;
     }
 
     fn on_press_right(&mut self) {
-        let num_piles = self.board.tableau.len();
-        self.pos = (self.pos + 1) % num_piles;
+        let max = self.board.get_num_piles();
+        self.pos = (self.pos + 1) % max;
         self.dirty = true;
     }
 
-    fn transfer_to(&mut self, dest: usize, source: usize) {
-        let t = &mut self.board.tableau;
-
-        // Card of rank N can be transferred to either an empty pile...
-        if t[dest].is_empty() {
-            let source_card = t[source].pop().unwrap();
-            t[dest].push(source_card);
+    fn maybe_transfer(&mut self, source: usize, dest: usize) {
+        if dest == 0 {
+            // Can't transfer to the stock pile.
             return;
         }
 
-        // ... or a pile whose top card is hidden...
-        if !t[dest].last().unwrap().is_visible() {
-            let source_card = t[source].pop().unwrap();
-            t[dest].push(source_card);
+        let source_pile = self.board.get_pile_at(source).unwrap();
+        let dest_pile = self.board.get_pile_at(dest).unwrap();
+
+        // Card of rank N can be transferred to an empty pile,
+        // or a pile whose top card is hidden...
+        if dest_pile.last().map_or(true, |c| !c.is_visible()) {
+            self.board.transfer(source, dest);
             return;
         }
 
         // ... or a pile whose top card has rank N + 1.
-        let source_rank = t[source].last().unwrap().rank.0;
-        let dest_rank = t[dest].last().unwrap().rank.0;
-        if source_rank + 1 == dest_rank {
-            let source_card = t[source].pop().unwrap();
-            t[dest].push(source_card);
+        let source_rank = source_pile.last().unwrap().rank.0;
+        let dest_rank = dest_pile.last().unwrap().rank.0;
+        if dest_rank == source_rank + 1 {
+            self.board.transfer(source, dest);
         }
     }
 
@@ -190,20 +211,20 @@ impl<W: io::Write> Game<W> {
         let mut loc = Loc::new(1, 1);
 
         // Draw stock pile
-        let widget = StackedPileWidget::new(self.board.stock.clone());
+        let widget = StackedPileWidget::new(self.board.stock.clone(), self.get_state(0));
         widget.render(&mut self.stdout, loc)?;
 
         // Draw waste pile
         loc.x += widget.get_width() + gap.x;
 
-        let widget = StackedPileWidget::new(self.board.waste.clone());
+        let widget = StackedPileWidget::new(self.board.waste.clone(), None);
         widget.render(&mut self.stdout, loc)?;
 
         // Draw foundation piles
         loc.x += 2 * (widget.get_width() + gap.x);
 
         for pile in self.board.foundations.iter() {
-            let widget = StackedPileWidget::new(pile.clone());
+            let widget = StackedPileWidget::new(pile.clone(), None);
             widget.render(&mut self.stdout, loc)?;
             loc.x += widget.get_width() + gap.x;
         }
@@ -213,14 +234,13 @@ impl<W: io::Write> Game<W> {
         loc.y = widget.get_height() + gap.y;
 
         for (index, pile) in self.board.tableau.iter().enumerate() {
-            let widget = FannedPileWidget::new(pile.clone(), self.get_state(index));
+            let widget = FannedPileWidget::new(pile.clone(), self.get_state(index + 1));
             widget.render(&mut self.stdout, loc)?;
             loc.x += widget.get_width() + 2;
         }
 
         write!(self.stdout, "\n\r")?;
-        write!(self.stdout, "Hint: 'q' will exit")?;
-        write!(self.stdout, "\n\r")?;
+        write!(self.stdout, "Hint: 'q' will exit\n\r")?;
 
         self.stdout.flush()?;
 

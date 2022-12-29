@@ -100,6 +100,44 @@ impl Board {
             waste: Pile::new(),
         }
     }
+
+    pub fn get_num_piles(&self) -> usize {
+        // The stock pile, plus each pile in the tableau.
+        1 + self.tableau.len()
+    }
+
+    pub fn get_pile_at(&self, index: usize) -> Option<&Pile> {
+        if index == 0 {
+            Some(&self.stock)
+        } else {
+            self.tableau.get(index - 1)
+        }
+    }
+
+    pub fn get_mut_pile_at(&mut self, index: usize) -> Option<&mut Pile> {
+        if index == 0 {
+            Some(&mut self.stock)
+        } else {
+            self.tableau.get_mut(index - 1)
+        }
+    }
+
+    pub fn transfer(&mut self, source: usize, dest: usize) {
+        let s = self.get_mut_pile_at(source).unwrap();
+        let card = s.pop().unwrap();
+        let t = self.get_mut_pile_at(dest).unwrap();
+        t.push(card);
+    }
+
+    pub fn maybe_move_to_waste(&mut self) -> bool {
+        if let Some(&card) = self.stock.last().filter(|c| c.is_visible()) {
+            self.stock.pop();
+            self.waste.push(card);
+            true
+        } else {
+            false
+        }
+    }
 }
 
 pub fn get_standard_pack() -> Vec<Card> {
