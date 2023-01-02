@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 rand = "0.8"
 termion = "2"
+tui = { version = "0.19", default-features = false, features = ["termion"] }

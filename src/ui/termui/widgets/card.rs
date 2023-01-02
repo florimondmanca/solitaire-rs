@@ -1,13 +1,9 @@
-use std::fmt;
-use std::io;
-use termion::{color, cursor};
+use tui::buffer::Buffer;
+use tui::layout::Rect;
+use tui::style::{Color, Style};
+use tui::widgets::Widget;
 
 use crate::domain::entities::{Card, Rank, Suit};
-use crate::ui::termui::lib::HasSize;
-use crate::ui::termui::lib::Loc;
-use crate::ui::termui::lib::RenderResult;
-use crate::ui::termui::lib::Size;
-use crate::ui::termui::lib::Widget;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CardState {
@@ -15,123 +11,90 @@ pub enum CardState {
     Picked,
 }
 
-pub static HOVER_COLOR: color::LightCyan = color::LightCyan;
-pub static PICKED_COLOR: color::Yellow = color::Yellow;
+pub static HOVER_COLOR: Color = Color::LightCyan;
+pub static PICKED_COLOR: Color = Color::Yellow;
 
-impl fmt::Display for Suit {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Suit::Heart => write!(f, "{}♥{}", color::Fg(color::Red), color::Fg(color::Reset)),
-            Suit::Diamond => write!(f, "{}♦{}", color::Fg(color::Red), color::Fg(color::Reset)),
-            Suit::Spades => write!(f, "{}♠{}", color::Fg(color::Black), color::Fg(color::Reset)),
-            Suit::Club => write!(f, "{}♣{}", color::Fg(color::Black), color::Fg(color::Reset)),
-        }?;
+impl Widget for Suit {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let x = area.x;
+        let y = area.y;
 
-        Ok(())
+        let (symbol, fg) = match self {
+            Suit::Heart => ("♥", Color::Red),
+            Suit::Diamond => ("♦", Color::Red),
+            Suit::Spades => ("♠", Color::Black),
+            Suit::Club => ("♣", Color::Black),
+        };
+
+        buf.set_string(x, y, symbol, Style::default().fg(fg));
     }
 }
 
-impl fmt::Display for Rank {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            Rank(13) => write!(f, "K"),
-            Rank(12) => write!(f, "Q"),
-            Rank(11) => write!(f, "J"),
-            Rank(1) => write!(f, "A"),
-            Rank(n) => write!(f, "{}", n),
-        }?;
-
-        Ok(())
+impl Widget for Rank {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let x = area.x;
+        let y = area.y;
+        let symbol = match self.0 {
+            13 => "K".into(),
+            12 => "Q".into(),
+            11 => "J".into(),
+            1 => "A".into(),
+            s => s.to_string(),
+        };
+        buf.set_string(x, y, &format!("{symbol:>2}"), Style::default());
     }
 }
 
 #[derive(Clone)]
 pub struct CardWidget {
-    size: Size,
     card: Card,
     state: Option<CardState>,
 }
 
 impl CardWidget {
     pub fn new(card: Card, state: Option<CardState>) -> Self {
-        Self {
-            size: Size::new(5, 4),
-            card,
-            state,
-        }
-    }
-
-    fn colorize(&self, s: &str) -> String {
-        match self.state {
-            Some(CardState::Picked) => {
-                format!("{}{s}{}", color::Fg(PICKED_COLOR), color::Fg(color::Reset))
-            }
-            Some(CardState::Hovered) => {
-                format!("{}{s}{}", color::Fg(HOVER_COLOR), color::Fg(color::Reset))
-            }
-            _ => s.into(),
-        }
+        Self { card, state }
     }
 }
 
-impl HasSize for CardWidget {
-    fn get_size(&self) -> &Size {
-        &self.size
-    }
-}
-
-impl<W: io::Write> Widget<W> for CardWidget {
-    fn render(&self, f: &mut W, loc: Loc) -> RenderResult {
-        let Loc { x, y } = loc;
+impl Widget for CardWidget {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let x = area.x;
+        let y = area.y;
 
         // Levitation effect
-        let x = match self.state {
-            Some(CardState::Hovered) => x + 1,
-            Some(CardState::Picked) => x + 1,
-            _ => x,
+        let (x, fg) = match self.state {
+            Some(CardState::Hovered) => (x + 1, HOVER_COLOR),
+            Some(CardState::Picked) => (x + 1, PICKED_COLOR),
+            None => (x, Color::Reset),
         };
 
-        write!(f, "{}", cursor::Goto(x, y))?;
-        write!(f, "{}", self.colorize("┌───┐"))?;
+        buf.set_string(x, y, "┌───┐", Style::default().fg(fg));
 
         if self.card.is_visible() {
-            let rank = match format!("{}", self.card.rank).as_str() {
-                "10" => "10".into(),
-                s => format!(" {s}"),
-            };
+            buf.set_string(x, y + 1, "│", Style::default().fg(fg));
+            let suit_area = Rect::new(x + 1, y + 1, 1, 1);
+            self.card.suit.render(suit_area, buf);
+            let rank_area = Rect::new(x + 2, y + 1, 2, 1);
+            self.card.rank.render(rank_area, buf);
+            buf.set_string(x + 4, y + 1, "│", Style::default().fg(fg));
 
-            write!(f, "{}", cursor::Goto(x, y + 1))?;
-            write!(
-                f,
-                "{b}{}{}{b}",
-                self.card.suit,
-                rank,
-                b = self.colorize("│"),
-            )?;
-
-            write!(f, "{}", cursor::Goto(x, y + 2))?;
-            write!(f, "{b} {} {b}", self.card.suit, b = self.colorize("│"),)?;
+            buf.set_string(x, y + 2, "│", Style::default().fg(fg));
+            let suit_area = Rect::new(x + 3, y + 2, 1, 1);
+            self.card.suit.render(suit_area, buf);
+            buf.set_string(x + 4, y + 2, "│", Style::default().fg(fg));
         } else {
             for dy in &[1, 2] {
-                write!(f, "{}", cursor::Goto(x, y + dy))?;
-                write!(
-                    f,
-                    "{b}{}▚▚▚{}{b}",
-                    color::Fg(color::LightBlue),
-                    color::Fg(color::Reset),
-                    b = self.colorize("│"),
-                )?;
+                buf.set_string(x, y + dy, "│", Style::default().fg(fg));
+                buf.set_string(x + 1, y + dy, "▚▚▚", Style::default().fg(Color::LightBlue));
+                buf.set_string(x + 4, y + dy, "│", Style::default().fg(fg));
             }
         }
 
-        write!(f, "{}", cursor::Goto(x, y + 3))?;
-        write!(f, "{}", self.colorize("└───┘"))?;
+        buf.set_string(x, y + 3, "└───┘", Style::default().fg(fg));
 
         if self.state == Some(CardState::Hovered) {
-            write!(f, "{}", cursor::Goto(x + 2, y + 4))?;
-            write!(f, "{}", self.colorize("^"))?;
+            buf.set_string(x + 2, y + 4, "^", Style::default().fg(fg));
         }
-
-        Ok(())
     }
 }

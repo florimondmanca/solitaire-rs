@@ -58,11 +58,17 @@ impl Card {
 
 pub type Pile = Vec<Card>;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Target {
+    Stock,
+    Pile(usize),
+}
+
 pub struct Board {
-    pub tableau: Vec<Pile>,
-    pub foundations: Vec<Pile>,
-    pub stock: Pile,
-    pub waste: Pile,
+    tableau: Vec<Pile>,
+    foundations: Vec<Pile>,
+    stock: Pile,
+    waste: Pile,
 }
 
 impl Board {
@@ -101,32 +107,129 @@ impl Board {
         }
     }
 
-    pub fn get_num_piles(&self) -> usize {
-        // The stock pile, plus each pile in the tableau.
-        1 + self.tableau.len()
+    pub fn get_stock(&self) -> &Pile {
+        &self.stock
     }
 
-    pub fn get_pile_at(&self, index: usize) -> Option<&Pile> {
-        if index == 0 {
-            Some(&self.stock)
-        } else {
-            self.tableau.get(index - 1)
+    pub fn get_waste(&self) -> &Pile {
+        &self.waste
+    }
+
+    pub fn get_foundations(&self) -> &Vec<Pile> {
+        &self.foundations
+    }
+
+    pub fn get_tableau(&self) -> &Vec<Pile> {
+        &self.tableau
+    }
+
+    pub fn get(&self, target: Target) -> Option<&Pile> {
+        match target {
+            Target::Stock => Some(&self.stock),
+            Target::Pile(index) => self.tableau.get(index),
         }
     }
 
-    pub fn get_mut_pile_at(&mut self, index: usize) -> Option<&mut Pile> {
-        if index == 0 {
-            Some(&mut self.stock)
-        } else {
-            self.tableau.get_mut(index - 1)
+    pub fn get_mut(&mut self, target: Target) -> Option<&mut Pile> {
+        match target {
+            Target::Stock => Some(&mut self.stock),
+            Target::Pile(index) => self.tableau.get_mut(index),
         }
     }
 
-    pub fn transfer(&mut self, source: usize, dest: usize) {
-        let s = self.get_mut_pile_at(source).unwrap();
+    pub fn rotate_left(&self, target: Target) -> Target {
+        match target {
+            Target::Stock => Target::Pile(self.tableau.len() - 1),
+            Target::Pile(0) => Target::Stock,
+            Target::Pile(n) => Target::Pile(n - 1),
+        }
+    }
+
+    pub fn rotate_right(&self, target: Target) -> Target {
+        match target {
+            Target::Stock => Target::Pile(0),
+            Target::Pile(n) if n == self.tableau.len() - 1 => Target::Stock,
+            Target::Pile(n) => Target::Pile(n + 1),
+        }
+    }
+
+    pub fn maybe_transfer(&mut self, source: Target, dest: Target) {
+        if dest == Target::Stock {
+            // Can't transfer to the stock pile.
+            return;
+        }
+
+        let source_pile = self.get(source).unwrap();
+        let dest_pile = self.get(dest).unwrap();
+
+        // Card of rank N can be transferred to an empty pile,
+        // or a pile whose top card is hidden...
+        if dest_pile.last().map_or(true, |c| !c.is_visible()) {
+            self.transfer(source, dest);
+            return;
+        }
+
+        // ... or a pile whose top card has rank N + 1.
+        let source_rank = source_pile.last().unwrap().rank.0;
+        let dest_rank = dest_pile.last().unwrap().rank.0;
+        if dest_rank == source_rank + 1 {
+            self.transfer(source, dest);
+        }
+    }
+
+    fn transfer(&mut self, source: Target, dest: Target) {
+        let s = self.get_mut(source).unwrap();
         let card = s.pop().unwrap();
-        let t = self.get_mut_pile_at(dest).unwrap();
+        let t = self.get_mut(dest).unwrap();
         t.push(card);
+    }
+
+    pub fn maybe_move_to_foundation(&mut self, target: Target) -> bool {
+        let pile = self.get(target).unwrap();
+
+        if pile.is_empty() {
+            return false;
+        }
+
+        let card = *pile.last().unwrap();
+
+        if !card.is_visible() {
+            return false;
+        }
+
+        let mut was_transferred = false;
+
+        for foundation in self.foundations.iter_mut() {
+            // Find a foundation where the card be transferred, if any.
+            // We do this automatically for better UX.
+
+            // Empty foundations can only be transferred an ace.
+            if foundation.is_empty() {
+                if card.rank.0 == 1 {
+                    foundation.push(card);
+                    was_transferred = true;
+                    break;
+                }
+                continue;
+            }
+
+            // For established foundations, the suit must match and
+            // cards must be stacked with ranks ascending.
+            let last = foundation.last().unwrap();
+
+            if last.suit == card.suit && card.rank.0 == last.rank.0 + 1 {
+                foundation.push(card);
+                was_transferred = true;
+                break;
+            }
+        }
+
+        if was_transferred {
+            // Need to do this outside the for-loop to please the borrow checker.
+            self.get_mut(target).unwrap().pop().unwrap();
+        }
+
+        was_transferred
     }
 
     pub fn maybe_move_to_waste(&mut self) -> bool {

@@ -1,5 +1,6 @@
-mod lib;
-mod main;
+mod app;
+mod termion_impl;
+mod ui;
 mod widgets;
 
-pub use main::run;
+pub use termion_impl::run;
