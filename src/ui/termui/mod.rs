@@ -1,4 +1,3 @@
-mod app;
 mod termion_impl;
 mod ui;
 mod widgets;

@@ -5,9 +5,9 @@ use tui::{
     widgets::Widget,
 };
 
-use crate::domain::entities::{Card, Pile};
+use crate::domain::{Card, CardAppearance, Pile};
 
-use super::{card::CardWidget, CardState, HOVER_COLOR};
+use super::{card::CardWidget, FOCUSED_COLOR};
 
 /**
  * Display a pile of cards fanned out as a column.
@@ -15,19 +15,19 @@ use super::{card::CardWidget, CardState, HOVER_COLOR};
 #[derive(Clone)]
 pub struct FannedPileWidget {
     pile: Pile,
-    state: Option<CardState>,
+    appearance: Option<CardAppearance>,
 }
 
 impl FannedPileWidget {
-    pub fn new(pile: Pile, state: Option<CardState>) -> Self {
-        Self { pile, state }
+    pub fn new(pile: Pile, appearance: Option<CardAppearance>) -> Self {
+        Self { pile, appearance }
     }
 }
 
 impl Widget for FannedPileWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if self.pile.is_empty() {
-            let widget = EmptySlotWidget::new(self.state);
+            let widget = EmptySlotWidget::new(self.appearance);
             widget.render(area, buf);
             return;
         }
@@ -36,11 +36,11 @@ impl Widget for FannedPileWidget {
         let last_index = self.pile.len() - 1;
 
         for (index, card) in self.pile.iter().enumerate() {
-            let state = match (index == last_index, self.state) {
-                (true, Some(s)) => Some(s),
+            let card_appearance = match (index == last_index, self.appearance) {
+                (true, Some(v)) => Some(v),
                 _ => None,
             };
-            let widget = CardWidget::new(card.clone(), state);
+            let widget = CardWidget::new(card.clone(), card_appearance);
             widget.render(region, buf);
 
             if index == last_index {
@@ -59,34 +59,34 @@ impl Widget for FannedPileWidget {
  */
 pub struct StackedPileWidget {
     pile: Vec<Card>,
-    state: Option<CardState>,
+    appearance: Option<CardAppearance>,
 }
 
 impl StackedPileWidget {
-    pub fn new(pile: Vec<Card>, state: Option<CardState>) -> Self {
-        Self { pile, state }
+    pub fn new(pile: Vec<Card>, appearance: Option<CardAppearance>) -> Self {
+        Self { pile, appearance }
     }
 }
 
 impl Widget for StackedPileWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if let Some(top_card) = self.pile.last() {
-            let card_widget = CardWidget::new(top_card.clone(), self.state);
+            let card_widget = CardWidget::new(top_card.clone(), self.appearance);
             card_widget.render(area, buf);
         } else {
-            let widget = EmptySlotWidget::new(self.state);
+            let widget = EmptySlotWidget::new(self.appearance);
             widget.render(area, buf);
         }
     }
 }
 
 struct EmptySlotWidget {
-    state: Option<CardState>,
+    appearance: Option<CardAppearance>,
 }
 
 impl EmptySlotWidget {
-    pub fn new(state: Option<CardState>) -> Self {
-        Self { state }
+    pub fn new(appearance: Option<CardAppearance>) -> Self {
+        Self { appearance }
     }
 }
 
@@ -95,8 +95,8 @@ impl Widget for EmptySlotWidget {
         let x = area.x;
         let y = area.y;
 
-        let style = Style::default().fg(match self.state {
-            Some(CardState::Hovered) => HOVER_COLOR,
+        let style = Style::default().fg(match self.appearance {
+            Some(CardAppearance::Focused) => FOCUSED_COLOR,
             _ => Color::Reset,
         });
 

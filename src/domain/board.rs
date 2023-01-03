@@ -1,60 +1,6 @@
 use rand::prelude::*;
 
-// Rules: https://www.officialgamerules.org/solitaire
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Suit {
-    Spades,
-    Heart,
-    Club,
-    Diamond,
-}
-
-impl Suit {
-    pub fn all() -> [Self; 4] {
-        [Self::Spades, Self::Heart, Self::Club, Self::Diamond]
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Rank(pub u8);
-
-impl Rank {
-    pub fn new(value: u8) -> Self {
-        Self(value)
-    }
-
-    pub fn all() -> Vec<Self> {
-        (1..=13).map(|n| Self::new(n)).collect()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Face {
-    Up,
-    Down,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Card {
-    pub rank: Rank,
-    pub suit: Suit,
-    face: Face,
-}
-
-impl Card {
-    pub fn new(rank: Rank, suit: Suit, face: Face) -> Self {
-        Self { rank, suit, face }
-    }
-
-    pub fn is_visible(&self) -> bool {
-        self.face == Face::Up
-    }
-
-    pub fn reveal(&mut self) {
-        self.face = Face::Up;
-    }
-}
+use super::{get_standard_pack, Card};
 
 pub type Pile = Vec<Card>;
 
@@ -71,8 +17,8 @@ pub struct Board {
     waste: Pile,
 }
 
-impl Board {
-    pub fn new() -> Self {
+impl Default for Board {
+    fn default() -> Self {
         let mut tableau = (0..7).map(|_| Pile::new()).collect::<Vec<_>>();
 
         let mut pack = get_standard_pack();
@@ -106,7 +52,9 @@ impl Board {
             waste: Pile::new(),
         }
     }
+}
 
+impl Board {
     pub fn get_stock(&self) -> &Pile {
         &self.stock
     }
@@ -137,7 +85,7 @@ impl Board {
         }
     }
 
-    pub fn rotate_left(&self, target: Target) -> Target {
+    pub fn get_previous_target(&self, target: Target) -> Target {
         match target {
             Target::Stock => Target::Pile(self.tableau.len() - 1),
             Target::Pile(0) => Target::Stock,
@@ -145,7 +93,7 @@ impl Board {
         }
     }
 
-    pub fn rotate_right(&self, target: Target) -> Target {
+    pub fn get_next_target(&self, target: Target) -> Target {
         match target {
             Target::Stock => Target::Pile(0),
             Target::Pile(n) if n == self.tableau.len() - 1 => Target::Stock,
@@ -184,7 +132,7 @@ impl Board {
         t.push(card);
     }
 
-    pub fn maybe_move_to_foundation(&mut self, target: Target) -> bool {
+    pub fn maybe_move_to_a_foundation(&mut self, target: Target) -> bool {
         let pile = self.get(target).unwrap();
 
         if pile.is_empty() {
@@ -232,25 +180,13 @@ impl Board {
         was_transferred
     }
 
-    pub fn maybe_move_to_waste(&mut self) -> bool {
-        if let Some(&card) = self.stock.last().filter(|c| c.is_visible()) {
+    pub fn maybe_move_top_stock_card_to_waste(&mut self) -> bool {
+        if let Some(&top_card) = self.stock.last().filter(|c| c.is_visible()) {
             self.stock.pop();
-            self.waste.push(card);
+            self.waste.push(top_card);
             true
         } else {
             false
         }
     }
-}
-
-pub fn get_standard_pack() -> Vec<Card> {
-    let mut pack = Vec::new();
-
-    for suit in Suit::all() {
-        for rank in Rank::all() {
-            pack.push(Card::new(rank, suit, Face::Down));
-        }
-    }
-
-    pack
 }

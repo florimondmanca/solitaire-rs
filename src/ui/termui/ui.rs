@@ -5,15 +5,13 @@ use tui::{
     Frame,
 };
 
-use crate::domain::entities::Target;
+use crate::{domain::Target, infrastructure::Container};
 
-use super::{
-    app::App,
-    widgets::{FannedPileWidget, StackedPileWidget},
-};
+use super::widgets::{FannedPileWidget, StackedPileWidget};
 
-pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
-    let board = app.get_board();
+pub fn draw<B: Backend>(f: &mut Frame<B>, container: &Container) {
+    let board = container.get_board();
+    let selection = container.get_selection();
 
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -35,7 +33,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .constraints(
             [
                 Constraint::Length(5 + 5),
-                Constraint::Length((6 * board.get_tableau().len()) as u16 + 5),
+                Constraint::Length((6 * board.borrow().get_tableau().len()) as u16 + 5),
                 Constraint::Length(5),
             ]
             .as_ref(),
@@ -48,10 +46,13 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .constraints([Constraint::Length(5), Constraint::Length(5)].as_ref())
         .split(body[0]);
 
-    let widget = StackedPileWidget::new(board.get_stock().clone(), app.get_state(Target::Stock));
+    let widget = StackedPileWidget::new(
+        board.borrow().get_stock().clone(),
+        selection.borrow().get_card_appearance(Target::Stock),
+    );
     f.render_widget(widget, hands[0]);
 
-    let widget = StackedPileWidget::new(board.get_waste().clone(), None);
+    let widget = StackedPileWidget::new(board.borrow().get_waste().clone(), None);
     f.render_widget(widget, hands[1]);
 
     // Draw tableau piles.
@@ -59,6 +60,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .direction(Direction::Horizontal)
         .constraints(
             board
+                .borrow()
                 .get_tableau()
                 .iter()
                 .map(|_| Constraint::Length(6))
@@ -67,8 +69,17 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .split(body[1]);
 
-    for (index, (pile, area)) in board.get_tableau().iter().zip(tableau_areas).enumerate() {
-        let widget = FannedPileWidget::new(pile.clone(), app.get_state(Target::Pile(index)));
+    for (index, (pile, area)) in board
+        .borrow()
+        .get_tableau()
+        .iter()
+        .zip(tableau_areas)
+        .enumerate()
+    {
+        let widget = FannedPileWidget::new(
+            pile.clone(),
+            selection.borrow().get_card_appearance(Target::Pile(index)),
+        );
         f.render_widget(widget, area);
     }
 
@@ -77,6 +88,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .direction(Direction::Vertical)
         .constraints(
             board
+                .borrow()
                 .get_foundations()
                 .iter()
                 .map(|_| Constraint::Length(4))
@@ -85,7 +97,12 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         )
         .split(body[2]);
 
-    for (pile, area) in board.get_foundations().iter().zip(foundation_areas) {
+    for (pile, area) in board
+        .borrow()
+        .get_foundations()
+        .iter()
+        .zip(foundation_areas)
+    {
         let widget = StackedPileWidget::new(pile.clone(), None);
         f.render_widget(widget, area);
     }

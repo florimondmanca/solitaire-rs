@@ -3,15 +3,9 @@ use tui::layout::Rect;
 use tui::style::{Color, Style};
 use tui::widgets::Widget;
 
-use crate::domain::entities::{Card, Rank, Suit};
+use crate::domain::{Card, CardAppearance, Rank, Suit};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum CardState {
-    Hovered,
-    Picked,
-}
-
-pub static HOVER_COLOR: Color = Color::LightCyan;
+pub static FOCUSED_COLOR: Color = Color::LightCyan;
 pub static PICKED_COLOR: Color = Color::Yellow;
 
 impl Widget for Suit {
@@ -48,12 +42,12 @@ impl Widget for Rank {
 #[derive(Clone)]
 pub struct CardWidget {
     card: Card,
-    state: Option<CardState>,
+    appearance: Option<CardAppearance>,
 }
 
 impl CardWidget {
-    pub fn new(card: Card, state: Option<CardState>) -> Self {
-        Self { card, state }
+    pub fn new(card: Card, appearance: Option<CardAppearance>) -> Self {
+        Self { card, appearance }
     }
 }
 
@@ -63,9 +57,9 @@ impl Widget for CardWidget {
         let y = area.y;
 
         // Levitation effect
-        let (x, fg) = match self.state {
-            Some(CardState::Hovered) => (x + 1, HOVER_COLOR),
-            Some(CardState::Picked) => (x + 1, PICKED_COLOR),
+        let (x, fg) = match self.appearance {
+            Some(CardAppearance::Focused) => (x + 1, FOCUSED_COLOR),
+            Some(CardAppearance::Picked) => (x + 1, PICKED_COLOR),
             None => (x, Color::Reset),
         };
 
@@ -93,7 +87,7 @@ impl Widget for CardWidget {
 
         buf.set_string(x, y + 3, "└───┘", Style::default().fg(fg));
 
-        if self.state == Some(CardState::Hovered) {
+        if self.appearance == Some(CardAppearance::Focused) {
             buf.set_string(x + 2, y + 4, "^", Style::default().fg(fg));
         }
     }

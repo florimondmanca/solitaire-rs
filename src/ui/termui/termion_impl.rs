@@ -8,9 +8,11 @@ use tui::{
     Terminal,
 };
 
-use super::{app::App, ui};
+use crate::infrastructure::Container;
 
-pub fn run() -> Result<(), Box<dyn Error>> {
+use super::ui;
+
+pub fn run(container: &Container) -> Result<(), Box<dyn Error>> {
     let stdout = io::stdout()
         .lock()
         .into_raw_mode()?
@@ -19,31 +21,68 @@ pub fn run() -> Result<(), Box<dyn Error>> {
     let backend = TermionBackend::new(stdout);
     let terminal = Terminal::new(backend).unwrap();
 
-    let app = App::new();
-    run_app(terminal, app)
+    run_app(terminal, container)
 }
 
-fn run_app<B: Backend>(mut terminal: Terminal<B>, mut app: App) -> Result<(), Box<dyn Error>> {
+fn run_app<B: Backend>(
+    mut terminal: Terminal<B>,
+    container: &Container,
+) -> Result<(), Box<dyn Error>> {
     let stdin = io::stdin().lock();
 
+    let mut dirty = true;
     let mut keys = stdin.keys();
+    let board = container.get_board();
+    let selection = container.get_selection();
 
     loop {
-        if app.is_dirty() {
-            terminal.draw(|f| ui::draw(f, &mut app))?;
+        if dirty {
+            terminal.draw(|f| ui::draw(f, container))?;
         }
 
         if let Some(key) = keys.next() {
             match key? {
-                Key::Char(c) => app.on_keypress(c),
-                Key::Left => app.on_left(),
-                Key::Right => app.on_right(),
+                Key::Char('q') => break,
+                Key::Char(' ') => {
+                    if selection
+                        .borrow_mut()
+                        .maybe_act_on_current_target(&mut board.borrow_mut())
+                    {
+                        dirty = true;
+                    }
+                }
+                Key::Char('\n') => {
+                    if selection
+                        .borrow_mut()
+                        .maybe_move_current_target_to_a_foundation(&mut board.borrow_mut())
+                    {
+                        dirty = true;
+                    }
+                }
+                Key::Char('w') => {
+                    if selection
+                        .borrow_mut()
+                        .maybe_move_top_stock_card_to_waste(&mut board.borrow_mut())
+                    {
+                        dirty = true;
+                    }
+                }
+                Key::Left => {
+                    selection
+                        .borrow_mut()
+                        .focus_previous_target(&mut board.borrow_mut());
+                    dirty = true;
+                }
+                Key::Right => {
+                    selection
+                        .borrow_mut()
+                        .focus_next_target(&mut board.borrow_mut());
+                    dirty = true;
+                }
                 _ => {}
             }
         }
-
-        if !app.is_running() {
-            return Ok(());
-        }
     }
+
+    Ok(())
 }
