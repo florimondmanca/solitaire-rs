@@ -76,10 +76,8 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, container: &Container) {
         .zip(tableau_areas)
         .enumerate()
     {
-        let widget = FannedPileWidget::new(
-            pile.clone(),
-            selection.borrow().get_card_appearance(Target::Pile(index)),
-        );
+        let widget =
+            FannedPileWidget::new(pile.clone(), selection.borrow().get_range_appearance(index));
         f.render_widget(widget, area);
     }
 

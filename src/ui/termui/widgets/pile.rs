@@ -5,21 +5,20 @@ use tui::{
     widgets::Widget,
 };
 
-use crate::domain::{Card, CardAppearance, Pile};
+use crate::domain::{Card, CardAppearance, Pile, RangeAppearance};
 
 use super::{card::CardWidget, FOCUSED_COLOR};
 
 /**
  * Display a pile of cards fanned out as a column.
  */
-#[derive(Clone)]
 pub struct FannedPileWidget {
     pile: Pile,
-    appearance: Option<CardAppearance>,
+    appearance: Option<RangeAppearance>,
 }
 
 impl FannedPileWidget {
-    pub fn new(pile: Pile, appearance: Option<CardAppearance>) -> Self {
+    pub fn new(pile: Pile, appearance: Option<RangeAppearance>) -> Self {
         Self { pile, appearance }
     }
 }
@@ -27,23 +26,28 @@ impl FannedPileWidget {
 impl Widget for FannedPileWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if self.pile.is_empty() {
-            let widget = EmptySlotWidget::new(self.appearance);
+            let widget = EmptySlotWidget::new(self.appearance.map(|x| x.card_appearance));
             widget.render(area, buf);
             return;
         }
 
         let mut region = area.clone();
-        let last_index = self.pile.len() - 1;
 
         for (index, card) in self.pile.iter().enumerate() {
-            let card_appearance = match (index == last_index, self.appearance) {
-                (true, Some(v)) => Some(v),
+            let card_appearance = match &self.appearance {
+                Some(x) => {
+                    let is_in_range = index >= self.pile.len() - x.size;
+                    is_in_range.then(|| x.card_appearance)
+                }
                 _ => None,
             };
+
             let widget = CardWidget::new(card.clone(), card_appearance);
             widget.render(region, buf);
 
-            if index == last_index {
+            let is_last = index == self.pile.len() - 1;
+
+            if is_last {
                 // Last card is visible in full.
                 region.y += 5;
             } else {

@@ -101,7 +101,7 @@ impl Board {
         }
     }
 
-    pub fn maybe_transfer(&mut self, source: Target, dest: Target) {
+    pub fn maybe_transfer(&mut self, source: Target, dest: Target, num_cards: usize) {
         if dest == Target::Stock {
             // Can't transfer to the stock pile.
             return;
@@ -113,23 +113,25 @@ impl Board {
         // Card of rank N can be transferred to an empty pile,
         // or a pile whose top card is hidden...
         if dest_pile.last().map_or(true, |c| !c.is_visible()) {
-            self.transfer(source, dest);
+            self.transfer(source, dest, num_cards);
             return;
         }
 
         // ... or a pile whose top card has rank N + 1.
-        let source_rank = source_pile.last().unwrap().rank.0;
+        let source_rank = source_pile[source_pile.len() - num_cards].rank.0;
         let dest_rank = dest_pile.last().unwrap().rank.0;
         if dest_rank == source_rank + 1 {
-            self.transfer(source, dest);
+            self.transfer(source, dest, num_cards);
         }
     }
 
-    fn transfer(&mut self, source: Target, dest: Target) {
+    fn transfer(&mut self, source: Target, dest: Target, num_cards: usize) {
         let s = self.get_mut(source).unwrap();
-        let card = s.pop().unwrap();
+        let items = s
+            .splice(s.len() - num_cards..s.len(), [])
+            .collect::<Vec<_>>();
         let t = self.get_mut(dest).unwrap();
-        t.push(card);
+        t.extend(items);
     }
 
     pub fn maybe_move_to_a_foundation(&mut self, target: Target) -> bool {

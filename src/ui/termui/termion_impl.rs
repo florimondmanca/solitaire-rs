@@ -79,6 +79,19 @@ fn run_app<B: Backend>(
                         .focus_next_target(&mut board.borrow_mut());
                     dirty = true;
                 }
+                Key::Up => {
+                    if selection
+                        .borrow_mut()
+                        .maybe_increment_card_range(&mut board.borrow_mut())
+                    {
+                        dirty = true;
+                    }
+                }
+                Key::Down => {
+                    if selection.borrow_mut().maybe_decrement_card_range() {
+                        dirty = true;
+                    }
+                }
                 _ => {}
             }
         }
