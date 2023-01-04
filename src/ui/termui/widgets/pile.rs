@@ -1,31 +1,38 @@
-use tui::{
-    buffer::Buffer,
-    layout::Rect,
-    style::{Color, Style},
-    widgets::Widget,
-};
+use tui::{buffer::Buffer, layout::Rect, widgets::Widget};
 
 use crate::domain::Pile;
 
-use super::{card::CardWidget, CardAppearance, FOCUSED_COLOR};
-
-pub type RangeAppearance = (CardAppearance, usize);
+use super::card::{CardAppearance, CardWidget, EmptySlotWidget};
 
 /**
  * Display a pile of cards fanned out as a column.
  */
-pub struct FannedPileWidget {
-    pile: Pile,
-    appearance: Option<RangeAppearance>,
+pub struct FannedPileWidget<'a> {
+    pile: &'a Pile,
+    appearance: Option<(CardAppearance, usize)>,
 }
 
-impl FannedPileWidget {
-    pub fn new(pile: Pile, appearance: Option<RangeAppearance>) -> Self {
+impl<'a> FannedPileWidget<'a> {
+    pub fn new(pile: &'a Pile, appearance: Option<(CardAppearance, usize)>) -> Self {
         Self { pile, appearance }
+    }
+
+    pub fn get_width(&self) -> u16 {
+        CardWidget::width()
+    }
+
+    pub fn get_height(&self) -> u16 {
+        let mut height = CardWidget::height();
+
+        for _ in self.pile.iter().skip(1) {
+            height += CardWidget::hint_height()
+        }
+
+        height
     }
 }
 
-impl Widget for FannedPileWidget {
+impl<'a> Widget for FannedPileWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if self.pile.is_empty() {
             let widget =
@@ -64,18 +71,26 @@ impl Widget for FannedPileWidget {
 /**
  * Display a pile of cards by only showing the topmost card, or an empty slot.
  */
-pub struct StackedPileWidget {
-    pile: Pile,
+pub struct StackedPileWidget<'a> {
+    pile: &'a Pile,
     appearance: Option<CardAppearance>,
 }
 
-impl StackedPileWidget {
-    pub fn new(pile: Pile, appearance: Option<CardAppearance>) -> Self {
+impl<'a> StackedPileWidget<'a> {
+    pub fn new(pile: &'a Pile, appearance: Option<CardAppearance>) -> Self {
         Self { pile, appearance }
+    }
+
+    pub fn get_width(&self) -> u16 {
+        CardWidget::width()
+    }
+
+    pub fn get_height(&self) -> u16 {
+        CardWidget::height()
     }
 }
 
-impl Widget for StackedPileWidget {
+impl<'a> Widget for StackedPileWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if let Some(top_card) = self.pile.last() {
             let card_widget = CardWidget::new(top_card.clone(), self.appearance);
@@ -84,32 +99,5 @@ impl Widget for StackedPileWidget {
             let widget = EmptySlotWidget::new(self.appearance);
             widget.render(area, buf);
         }
-    }
-}
-
-struct EmptySlotWidget {
-    appearance: Option<CardAppearance>,
-}
-
-impl EmptySlotWidget {
-    pub fn new(appearance: Option<CardAppearance>) -> Self {
-        Self { appearance }
-    }
-}
-
-impl Widget for EmptySlotWidget {
-    fn render(self, area: Rect, buf: &mut Buffer) {
-        let x = area.x;
-        let y = area.y;
-
-        let style = Style::default().fg(match self.appearance {
-            Some(CardAppearance::Focused) => FOCUSED_COLOR,
-            _ => Color::Reset,
-        });
-
-        buf.set_string(x, y, "┌╌╌╌┐", style);
-        buf.set_string(x, y + 1, "╎   ╎", style);
-        buf.set_string(x, y + 2, "╎   ╎", style);
-        buf.set_string(x, y + 3, "└╌╌╌┘", style);
     }
 }

@@ -5,8 +5,9 @@ use tui::widgets::Widget;
 
 use crate::domain::{Card, Rank, Suit};
 
-pub static FOCUSED_COLOR: Color = Color::LightCyan;
-pub static PICKED_COLOR: Color = Color::Yellow;
+static FOCUSED_COLOR: Color = Color::Cyan;
+static PICKED_COLOR: Color = Color::Yellow;
+static COVER_COLOR: Color = Color::LightBlue;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CardAppearance {
@@ -56,8 +57,12 @@ impl CardWidget {
         Self { card, appearance }
     }
 
-    pub fn height() -> u16 {
+    pub fn width() -> u16 {
         5
+    }
+
+    pub fn height() -> u16 {
+        4
     }
 
     pub fn hint_height() -> u16 {
@@ -99,7 +104,7 @@ impl Widget for CardWidget {
             for dy in &[1, 2] {
                 // | ▚▚▚ |
                 buf.set_string(x, y + dy, "│", Style::default().fg(fg));
-                buf.set_string(x + 1, y + dy, "▚▚▚", Style::default().fg(Color::LightBlue));
+                buf.set_string(x + 1, y + dy, "▚▚▚", Style::default().fg(COVER_COLOR));
                 buf.set_string(x + 4, y + dy, "│", Style::default().fg(fg));
             }
         }
@@ -109,5 +114,32 @@ impl Widget for CardWidget {
         if self.appearance == Some(CardAppearance::Focused) {
             buf.set_string(x + 2, y + 4, "^", Style::default().fg(fg));
         }
+    }
+}
+
+pub struct EmptySlotWidget {
+    appearance: Option<CardAppearance>,
+}
+
+impl EmptySlotWidget {
+    pub fn new(appearance: Option<CardAppearance>) -> Self {
+        Self { appearance }
+    }
+}
+
+impl Widget for EmptySlotWidget {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        let x = area.x;
+        let y = area.y;
+
+        let style = Style::default().fg(match self.appearance {
+            Some(CardAppearance::Focused) => FOCUSED_COLOR,
+            _ => Color::Reset,
+        });
+
+        buf.set_string(x, y, "┌╌╌╌┐", style);
+        buf.set_string(x, y + 1, "╎   ╎", style);
+        buf.set_string(x, y + 2, "╎   ╎", style);
+        buf.set_string(x, y + 3, "└╌╌╌┘", style);
     }
 }
