@@ -1,7 +1,5 @@
-mod board;
-mod card;
-mod selection;
+mod entities;
+mod game;
 
-pub use board::*;
-pub use card::*;
-pub use selection::*;
+pub use entities::*;
+pub use game::*;

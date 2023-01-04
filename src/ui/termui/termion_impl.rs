@@ -8,7 +8,7 @@ use tui::{
     Terminal,
 };
 
-use crate::infrastructure::Container;
+use crate::{domain::Action, infrastructure::Container};
 
 use super::ui;
 
@@ -33,62 +33,63 @@ fn run_app<B: Backend>(
     let mut dirty = true;
     let mut keys = stdin.keys();
     let board = container.get_board();
-    let selection = container.get_selection();
+    let state_machine = container.get_state_machine();
 
     loop {
         if dirty {
             terminal.draw(|f| ui::draw(f, container))?;
+            dirty = false;
         }
 
         if let Some(key) = keys.next() {
             match key? {
                 Key::Char('q') => break,
                 Key::Char(' ') => {
-                    if selection
+                    if state_machine
                         .borrow_mut()
-                        .maybe_act_on_current_target(&mut board.borrow_mut())
+                        .handle(Action::Act(&mut board.borrow_mut()))
                     {
                         dirty = true;
                     }
                 }
                 Key::Char('\n') => {
-                    if selection
+                    if state_machine
                         .borrow_mut()
-                        .maybe_move_current_target_to_a_foundation(&mut board.borrow_mut())
+                        .handle(Action::Build(&mut board.borrow_mut()))
                     {
                         dirty = true;
                     }
                 }
                 Key::Char('w') => {
-                    if selection
+                    if state_machine
                         .borrow_mut()
-                        .maybe_move_top_stock_card_to_waste(&mut board.borrow_mut())
+                        .handle(Action::Discard(&mut board.borrow_mut()))
                     {
                         dirty = true;
                     }
                 }
                 Key::Left => {
-                    selection
+                    state_machine
                         .borrow_mut()
-                        .focus_previous_target(&mut board.borrow_mut());
+                        .handle(Action::TargetPrevious(&mut board.borrow_mut()));
                     dirty = true;
                 }
                 Key::Right => {
-                    selection
+                    state_machine
                         .borrow_mut()
-                        .focus_next_target(&mut board.borrow_mut());
+                        .handle(Action::TargetNext(&mut board.borrow_mut()));
                     dirty = true;
                 }
                 Key::Up => {
-                    if selection
+                    if state_machine
                         .borrow_mut()
-                        .maybe_increment_card_range(&mut board.borrow_mut())
+                        .handle(Action::IncreaseRange(&mut board.borrow_mut()))
                     {
                         dirty = true;
                     }
                 }
                 Key::Down => {
-                    if selection.borrow_mut().maybe_decrement_card_range() {
+                    if state_machine.borrow_mut().handle(Action::DecreaseRange) {
                         dirty = true;
                     }
                 }

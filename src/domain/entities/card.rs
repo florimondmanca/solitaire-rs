@@ -1,5 +1,3 @@
-// Rules: https://www.officialgamerules.org/solitaire
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Suit {
     Spades,
@@ -10,7 +8,7 @@ pub enum Suit {
 
 impl Suit {
     pub fn all() -> [Self; 4] {
-        [Self::Spades, Self::Heart, Self::Club, Self::Diamond]
+        [Self::Heart, Self::Diamond, Self::Spades, Self::Club]
     }
 }
 
@@ -27,30 +25,28 @@ impl Rank {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Face {
-    Up,
-    Down,
-}
-
 #[derive(Debug, Clone, Copy)]
 pub struct Card {
     pub rank: Rank,
     pub suit: Suit,
-    face: Face,
+    shown: bool,
 }
 
 impl Card {
-    pub fn new(rank: Rank, suit: Suit, face: Face) -> Self {
-        Self { rank, suit, face }
+    pub fn new(rank: Rank, suit: Suit) -> Self {
+        Self {
+            rank,
+            suit,
+            shown: false,
+        }
     }
 
     pub fn is_visible(&self) -> bool {
-        self.face == Face::Up
+        self.shown
     }
 
     pub fn reveal(&mut self) {
-        self.face = Face::Up;
+        self.shown = true;
     }
 }
 
@@ -59,7 +55,7 @@ pub fn get_standard_pack() -> Vec<Card> {
 
     for suit in Suit::all() {
         for rank in Rank::all() {
-            pack.push(Card::new(rank, suit, Face::Down));
+            pack.push(Card::new(rank, suit));
         }
     }
 

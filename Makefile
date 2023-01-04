@@ -1,10 +1,10 @@
-all: build run-termui
+all: build run-tui
 
 build:
 	cargo build
 
-run-termui:
-	cargo run --bin termui
+run-tui:
+	cargo run --bin tui
 
 format:
 	cargo fmt

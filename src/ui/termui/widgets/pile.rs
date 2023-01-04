@@ -5,9 +5,11 @@ use tui::{
     widgets::Widget,
 };
 
-use crate::domain::{Card, CardAppearance, Pile, RangeAppearance};
+use crate::domain::Pile;
 
-use super::{card::CardWidget, FOCUSED_COLOR};
+use super::{card::CardWidget, CardAppearance, FOCUSED_COLOR};
+
+pub type RangeAppearance = (CardAppearance, usize);
 
 /**
  * Display a pile of cards fanned out as a column.
@@ -26,7 +28,8 @@ impl FannedPileWidget {
 impl Widget for FannedPileWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
         if self.pile.is_empty() {
-            let widget = EmptySlotWidget::new(self.appearance.map(|x| x.card_appearance));
+            let widget =
+                EmptySlotWidget::new(self.appearance.map(|(card_appearance, _)| card_appearance));
             widget.render(area, buf);
             return;
         }
@@ -35,9 +38,9 @@ impl Widget for FannedPileWidget {
 
         for (index, card) in self.pile.iter().enumerate() {
             let card_appearance = match &self.appearance {
-                Some(x) => {
-                    let is_in_range = index >= self.pile.len() - x.size;
-                    is_in_range.then(|| x.card_appearance)
+                Some((card_appearance, size)) => {
+                    let is_in_range = index >= self.pile.len() - size;
+                    is_in_range.then(|| *card_appearance)
                 }
                 _ => None,
             };
@@ -49,10 +52,10 @@ impl Widget for FannedPileWidget {
 
             if is_last {
                 // Last card is visible in full.
-                region.y += 5;
+                region.y += CardWidget::height();
             } else {
                 // Other cards are partially covered.
-                region.y += 2;
+                region.y += CardWidget::hint_height();
             }
         }
     }
@@ -62,12 +65,12 @@ impl Widget for FannedPileWidget {
  * Display a pile of cards by only showing the topmost card, or an empty slot.
  */
 pub struct StackedPileWidget {
-    pile: Vec<Card>,
+    pile: Pile,
     appearance: Option<CardAppearance>,
 }
 
 impl StackedPileWidget {
-    pub fn new(pile: Vec<Card>, appearance: Option<CardAppearance>) -> Self {
+    pub fn new(pile: Pile, appearance: Option<CardAppearance>) -> Self {
         Self { pile, appearance }
     }
 }

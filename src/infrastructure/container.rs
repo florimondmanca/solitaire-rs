@@ -1,17 +1,17 @@
 use std::{cell::RefCell, rc::Rc};
 
-use crate::domain::{Board, Selection};
+use crate::domain::{Board, StateMachine};
 
 pub struct Container {
     board: Rc<RefCell<Board>>,
-    selection: Rc<RefCell<Selection>>,
+    state_machine: Rc<RefCell<StateMachine>>,
 }
 
 impl Default for Container {
     fn default() -> Self {
         Self {
             board: Rc::new(RefCell::new(Board::default())),
-            selection: Rc::new(RefCell::new(Selection::default())),
+            state_machine: Rc::new(RefCell::new(StateMachine::default())),
         }
     }
 }
@@ -21,7 +21,7 @@ impl Container {
         Rc::clone(&self.board)
     }
 
-    pub fn get_selection(&self) -> Rc<RefCell<Selection>> {
-        Rc::clone(&self.selection)
+    pub fn get_state_machine(&self) -> Rc<RefCell<StateMachine>> {
+        Rc::clone(&self.state_machine)
     }
 }

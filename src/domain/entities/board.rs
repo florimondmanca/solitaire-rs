@@ -10,6 +10,7 @@ pub enum Target {
     Pile(usize),
 }
 
+#[derive(Debug)]
 pub struct Board {
     tableau: Vec<Pile>,
     foundations: Vec<Pile>,
@@ -126,12 +127,14 @@ impl Board {
     }
 
     fn transfer(&mut self, source: Target, dest: Target, num_cards: usize) {
-        let s = self.get_mut(source).unwrap();
-        let items = s
-            .splice(s.len() - num_cards..s.len(), [])
+        let source_pile = self.get_mut(source).unwrap();
+
+        let items = source_pile
+            .splice(source_pile.len() - num_cards..source_pile.len(), [])
             .collect::<Vec<_>>();
-        let t = self.get_mut(dest).unwrap();
-        t.extend(items);
+
+        let dest_pile = self.get_mut(dest).unwrap();
+        dest_pile.extend(items);
     }
 
     pub fn maybe_move_to_a_foundation(&mut self, target: Target) -> bool {

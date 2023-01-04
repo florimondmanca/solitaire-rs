@@ -5,13 +5,16 @@ use tui::{
     Frame,
 };
 
-use crate::{domain::Target, infrastructure::Container};
+use crate::{
+    domain::{StateMachine, Target, TargetStatus},
+    infrastructure::Container,
+};
 
-use super::widgets::{FannedPileWidget, StackedPileWidget};
+use super::widgets::{CardAppearance, FannedPileWidget, RangeAppearance, StackedPileWidget};
 
 pub fn draw<B: Backend>(f: &mut Frame<B>, container: &Container) {
     let board = container.get_board();
-    let selection = container.get_selection();
+    let state_machine = container.get_state_machine();
 
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -48,7 +51,7 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, container: &Container) {
 
     let widget = StackedPileWidget::new(
         board.borrow().get_stock().clone(),
-        selection.borrow().get_card_appearance(Target::Stock),
+        get_card_appearance(&state_machine.borrow(), Target::Stock),
     );
     f.render_widget(widget, hands[0]);
 
@@ -76,8 +79,10 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, container: &Container) {
         .zip(tableau_areas)
         .enumerate()
     {
-        let widget =
-            FannedPileWidget::new(pile.clone(), selection.borrow().get_range_appearance(index));
+        let widget = FannedPileWidget::new(
+            pile.clone(),
+            get_range_appearance(&state_machine.borrow(), index),
+        );
         f.render_widget(widget, area);
     }
 
@@ -104,4 +109,22 @@ pub fn draw<B: Backend>(f: &mut Frame<B>, container: &Container) {
         let widget = StackedPileWidget::new(pile.clone(), None);
         f.render_widget(widget, area);
     }
+}
+
+fn get_card_appearance(state_machine: &StateMachine, target: Target) -> Option<CardAppearance> {
+    state_machine
+        .get_status_of(target)
+        .map(|status| match status {
+            TargetStatus::Current { .. } => CardAppearance::Focused,
+            TargetStatus::Picked { .. } => CardAppearance::Picked,
+        })
+}
+
+fn get_range_appearance(state_machine: &StateMachine, index: usize) -> Option<RangeAppearance> {
+    state_machine
+        .get_status_of(Target::Pile(index))
+        .map(|status| match status {
+            TargetStatus::Current { num_cards } => (CardAppearance::Focused, num_cards),
+            TargetStatus::Picked { num_cards } => (CardAppearance::Picked, num_cards),
+        })
 }
