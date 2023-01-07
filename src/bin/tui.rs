@@ -1,6 +1,5 @@
-use solitaire_rs::{infrastructure::Container, ui::termui};
+use solitaire_rs::{infrastructure::Container, ui::termui::cursive_impl::run};
 
 fn main() {
-    let container = Container::default();
-    termui::run(&container).unwrap();
+    run().unwrap();
 }

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+cursive = "0.20.0"
 rand = "0.8"
 termion = "2"
 tui = { version = "0.19", default-features = false, features = ["termion"] }
