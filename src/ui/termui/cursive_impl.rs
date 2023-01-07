@@ -1,14 +1,13 @@
 use std::error::Error;
 
 use cursive::{
-    event::{Event, Key},
     theme::{BorderStyle, Palette},
     Cursive, CursiveExt, With,
 };
 
-use crate::{domain::Action, infrastructure::Container};
+use crate::infrastructure::Container;
 
-use super::views::make_app_layout;
+use super::views::make_app_view;
 
 pub fn run() -> Result<(), Box<dyn Error>> {
     let container = Container::default();
@@ -32,24 +31,9 @@ pub fn run() -> Result<(), Box<dyn Error>> {
         }),
     });
 
-    let board_ref = container.get_board();
-    let state_machine_ref = container.get_state_machine();
-
-    let app = make_app_layout(&board_ref.borrow());
+    let app = make_app_view(container);
     siv.add_layer(app);
-
-    siv.add_global_callback('q', Cursive::quit);
-
-    siv.add_global_callback(Event::Key(Key::Left), move |_s| {
-        state_machine_ref.borrow_mut().handle(Action::TargetPrevious(&mut board_ref.borrow_mut()));
-    });
-
-    siv.add_global_callback(Event::Key(Key::Right), move |_s| {
-        state_machine_ref.borrow_mut().handle(Action::TargetNext(&mut board_ref.borrow_mut()));
-    });
-
     siv.run();
-
     Ok(())
 
     // let mut dirty = true;
