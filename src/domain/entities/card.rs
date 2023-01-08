@@ -48,6 +48,10 @@ impl Card {
     pub fn reveal(&mut self) {
         self.shown = true;
     }
+
+    pub fn hide(&mut self) {
+        self.shown = false;
+    }
 }
 
 pub fn get_standard_pack() -> Vec<Card> {

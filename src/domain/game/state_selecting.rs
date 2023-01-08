@@ -21,7 +21,7 @@ impl SelectingState {
         }
     }
 
-    fn maybe_reveal_or_pick(&mut self, board: &mut Board) -> (bool, Option<Box<dyn GameState>>) {
+    fn maybe_act(&mut self, board: &mut Board) -> (bool, Option<Box<dyn GameState>>) {
         if let Some(top_card) = board.get_mut(self.current_target).unwrap().last_mut() {
             if !top_card.is_visible() {
                 top_card.reveal();
@@ -31,6 +31,11 @@ impl SelectingState {
             let new_state = TransferringState::new(self.current_target, self.num_selected_cards);
             return (true, Some(Box::new(new_state)));
         };
+
+        if self.current_target == Target::Stock {
+            board.reload_stock();
+            return (true, None);
+        }
 
         (false, None)
     }
@@ -96,7 +101,7 @@ impl GameState for SelectingState {
             }
             Action::IncreaseRange(board) => (self.maybe_increment_card_range(board), None),
             Action::DecreaseRange => (self.maybe_decrement_card_range(), None),
-            Action::Act(board) => self.maybe_reveal_or_pick(board),
+            Action::Act(board) => self.maybe_act(board),
             Action::Build(board) => (board.maybe_move_to_a_foundation(self.current_target), None),
             Action::Discard(board) => (board.maybe_move_top_stock_card_to_waste(), None),
         }

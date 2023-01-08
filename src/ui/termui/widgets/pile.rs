@@ -74,11 +74,21 @@ impl<'a> Widget for FannedPileWidget<'a> {
 pub struct StackedPileWidget<'a> {
     pile: &'a Pile,
     appearance: Option<CardAppearance>,
+    empty_content: [char; 2],
 }
 
 impl<'a> StackedPileWidget<'a> {
     pub fn new(pile: &'a Pile, appearance: Option<CardAppearance>) -> Self {
-        Self { pile, appearance }
+        Self {
+            pile,
+            appearance,
+            empty_content: [' '; 2],
+        }
+    }
+
+    pub fn empty_content(mut self, content: [char; 2]) -> Self {
+        self.empty_content = content;
+        self
     }
 
     pub fn get_width(&self) -> u16 {
@@ -96,7 +106,7 @@ impl<'a> Widget for StackedPileWidget<'a> {
             let card_widget = CardWidget::new(top_card.clone(), self.appearance);
             card_widget.render(area, buf);
         } else {
-            let widget = EmptySlotWidget::new(self.appearance);
+            let widget = EmptySlotWidget::new(self.appearance).content(self.empty_content);
             widget.render(area, buf);
         }
     }

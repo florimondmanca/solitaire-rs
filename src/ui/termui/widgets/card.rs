@@ -119,11 +119,20 @@ impl Widget for CardWidget {
 
 pub struct EmptySlotWidget {
     appearance: Option<CardAppearance>,
+    content: [char; 2],
 }
 
 impl EmptySlotWidget {
     pub fn new(appearance: Option<CardAppearance>) -> Self {
-        Self { appearance }
+        Self {
+            appearance,
+            content: [' '; 2],
+        }
+    }
+
+    pub fn content(mut self, content: [char; 2]) -> Self {
+        self.content = content;
+        self
     }
 }
 
@@ -138,8 +147,8 @@ impl Widget for EmptySlotWidget {
         });
 
         buf.set_string(x, y, "┌╌╌╌┐", style);
-        buf.set_string(x, y + 1, "╎   ╎", style);
-        buf.set_string(x, y + 2, "╎   ╎", style);
+        buf.set_string(x, y + 1, format!("╎ {} ╎", self.content[0]), style);
+        buf.set_string(x, y + 2, format!("╎ {} ╎", self.content[1]), style);
         buf.set_string(x, y + 3, "└╌╌╌┘", style);
     }
 }

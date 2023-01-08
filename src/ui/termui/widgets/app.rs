@@ -33,7 +33,9 @@ fn make_hands_widget<'a>(
         });
 
     VerticalWidget::new(vec![
-        StackedPileWidget::new(stock, stock_appearance).into(),
+        StackedPileWidget::new(stock, stock_appearance)
+            .empty_content(['↱', '↲'])
+            .into(),
         StackedPileWidget::new(waste, None).into(),
     ])
     .gap(1)

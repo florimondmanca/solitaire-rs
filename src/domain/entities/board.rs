@@ -194,4 +194,12 @@ impl Board {
             false
         }
     }
+
+    pub fn reload_stock(&mut self) -> bool {
+        while let Some(mut card) = self.waste.pop() {
+            card.hide();
+            self.stock.push(card);
+        }
+        true
+    }
 }
